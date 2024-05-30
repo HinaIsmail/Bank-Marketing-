@@ -1,0 +1,137 @@
+# Bank-Marketing
+Bank marketing typically refers to the strategies and techniques that banks use to promote their products and services to potential customers. This can include a variety of marketing channels such as advertising, direct mail, digital marketing, social media, and more. The goal of bank marketing is to attract new customers, retain existing ones, and ultimately increase revenue for the bank. Strategies may involve targeting specific demographics, offering promotions or incentives, and providing personalized customer experiences. Additionally, with the rise of online banking, many banks are focusing more on digital marketing efforts to reach customers through websites, mobile apps, and other online platforms.
+# Data Set Information:
+The data is related with direct marketing campaigns of a Portuguese banking institution. The marketing campaigns were based on phone calls. Often, more than one contact to the same client was required, in order to access if the product (bank term deposit) would be ('yes') or not ('no') subscribed.
+
+# Attribute Information:
+**Bank client data:**
+1. Age (numeric)
+2. Job : type of job (categorical: 'admin.', 'blue-collar', 'entrepreneur', 'housemaid', 'management', 'retired', 'self-employed', 'services', 'student', 'technician', 'unemployed', 'unknown')
+3. Marital : marital status (categorical: 'divorced', 'married', 'single', 'unknown' ; note: 'divorced' means divorced or widowed)
+4. Education (categorical: 'basic.4y', 'basic.6y', 'basic.9y', 'high.school', 'illiterate', 'professional.course', 'university.degree', 'unknown')
+5. Default: has credit in default? (categorical: 'no', 'yes', 'unknown')
+6. Housing: has housing loan? (categorical: 'no', 'yes', 'unknown')
+7. Loan: has personal loan? (categorical: 'no', 'yes', 'unknown')
+
+# Related with the last contact of the current campaign:
+1. Contact: contact communication type (categorical:
+'cellular','telephone')
+2. Month: last contact month of year (categorical: 'jan', 'feb', 'mar',
+…, 'nov', 'dec')
+Day_of_week: last contact day of the week (categorical:
+'mon','tue','wed','thu','fri')
+3. Duration: last contact duration, in seconds (numeric). Important
+note: this attribute highly affects the output target (e.g., if
+duration=0 then y='no'). Yet, the duration is not known before a call
+is performed. Also, after the end of the call y is obviously known.
+Thus, this input should only be included for benchmark purposes and
+should be discarded if the intention is to have a realistic
+predictive model.
+
+# Other attributes:
+1. Campaign: number of contacts performed during this campaign and for
+this client (numeric, includes last contact)
+2. Pdays: number of days that passed by after the client was last
+contacted from a previous campaign (numeric; 999 means client was not
+previously contacted)
+3. Previous: number of contacts performed before this campaign and for
+this client (numeric)
+4. Poutcome: outcome of the previous marketing campaign (categorical:
+'failure','nonexistent','success')
+
+# Social and economic context attributes
+1. Emp.var.rate: employment variation rate - quarterly indicator
+(numeric)
+2. Cons.price.idx: consumer price index - monthly indicator (numeric)
+3. Cons.conf.idx: consumer confidence index - monthly indicator
+(numeric)
+4. Euribor3m: euribor 3 month rate - daily indicator (numeric)
+Nr.employed: number of employees - quarterly indicator (numeric)
+Output variable (desired target):
+5. y - has the client subscribed a term deposit? (binary: 'yes', 'no')
+
+# Analysis Steps:
+1. Atribute information Analysis.
+2. Machine Learning (Logistic Regression, KNN, SVM, Decision Tree,
+Random Forest, Naive Bayes)
+3. Deep Learning (ANN)
+
+# Source:
+Dataset from : http://archive.ics.uci.edu/ml/datasets/Bank+Marketing#
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler, OneHotEncoder
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+from sklearn.impute import SimpleImputer
+from imblearn.over_sampling import SMOTE
+from imblearn.pipeline import Pipeline as ImbPipeline
+
+# Load the dataset
+file_path = '/kaggle/input/bank-marketing/bank-additional-full.csv'
+df = pd.read_csv(file_path, sep=';')
+# Display basic information about the dataset for EDA
+print(df.head())
+print(df.info())
+print(df.describe())
+
+# Plotting histograms for numerical features
+numerical_features = df.select_dtypes(include=['int64', 'float64']).columns
+num_rows = int(len(numerical_features) / 4) + (len(numerical_features) % 4 > 0)
+df[numerical_features].hist(bins=15, figsize=(20, num_rows * 4), layout=(num_rows, 4))
+plt.tight_layout()
+plt.show()
+
+# Plotting count plots for categorical features
+categorical_features = df.select_dtypes(include=['object']).columns
+for col in categorical_features:
+    sns.countplot(x=col, data=df)
+    plt.title(f'Distribution of {col}')
+    plt.xticks(rotation=45)
+    plt.show()
+
+# Correlation heatmap for numerical features
+sns.heatmap(df[numerical_features].corr(), annot=True, cmap='coolwarm')
+plt.title('Correlation Heatmap for Numerical Features')
+plt.show()
+   
+# Feature Engineering
+df['new_feature'] = df['age'] / df['campaign']  # Example of a new feature
+
+# Identify categorical and numerical columns
+categorical_cols = df.select_dtypes(include=['object']).drop('y', axis=1).columns.tolist()
+numerical_cols = df.select_dtypes(include=['int64', 'float64']).columns.tolist()
+
+# Define the target and features
+y = df['y'].map({'yes': 1, 'no': 0}).values
+X = df.drop('y', axis=1)
+
+# Splitting the dataset into training and test sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
+
+# Define preprocessors for numerical and categorical data
+numerical_transformer = Pipeline(steps=[
+    ('imputer', SimpleImputer(strategy='mean')),
+    ('scaler', StandardScaler())
+])
+categorical_transformer = Pipeline(steps=[
+    ('imputer', SimpleImputer(strategy='most_frequent')),
+    ('onehot', OneHotEncoder(handle_unknown='ignore'))
+])
+
+# Bundle preprocessing for numerical and categorical data
+preprocessor = ColumnTransformer(
+    transformers=[
+        ('num', numerical_transformer, numerical_cols),
+        ('cat', categorical_transformer, categorical_cols)
+])
+
+# Create a pipeline that first preprocesses the data
+X_train_preprocessed = preprocessor.fit_transform(X_train)
+X_test_preprocessed = preprocessor.transform(X_test)
+
+# Apply SMOTE to training data
+smote = SMOTE()
+X_train_resampled, y_train_resampled = smote.fit_resample(X_train_preprocessed, y_train)
